@@ -4,7 +4,13 @@ var urlRegex = /^https?:\/\/(?:[^\.]+\.)?stackoverflow\.com/;
 
 /* A function creator for callbacks */
 function doStuffWithDOM(domContent) {
-    console.log("I received the following <Script> Tags content:\n" + domContent);
+    if (jQuery)
+        jQuery.each(jQuery('script', domContent), function (index, value) {
+            console.log(value);
+        });
+        //console.log(jQuery('script',domContent));
+    else
+        console.log("I received the following <Script> Tags content:\n" + domContent);
 }
 
 /* When the browser-action button is clicked... */
