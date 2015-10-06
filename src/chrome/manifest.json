@@ -1,7 +1,8 @@
 {
     "manifest_version": 2,
     "name":    "Test Extension",
-    "version": "0.0",
+    "description": "Pauses / resumes JavaScript execution",
+    "version": "1.0",
 
     "background": {
         "persistent": false,
@@ -9,11 +10,12 @@
     },
     "content_scripts": [{
         "matches": ["*://*.stackoverflow.com/*"],
-        "js":      ["content.js"]
+        "js":      ["jquery-2.1.1.min.js", "content.js"]
     }],
     "browser_action": {
-        "default_title": "Test Extension"
+        "default_title": "Test Extension",
+        "default_icon": "debuggerPause.png"
     },
 
-    "permissions": ["activeTab"]
+    "permissions": ["activeTab", "storage", "debugger", "tabs"]
 }
