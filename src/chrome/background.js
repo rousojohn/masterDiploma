@@ -22,26 +22,42 @@ var getRandomToken = function () {
 
 var informUser = function (rating) {
     console.log("informUser: " + rating);
+    // getCurrentTab()
     var text = '';
+    var color = '';
+    var icon = '' ;
     switch (rating) {
         case 'malicious' :
+            color = '#dd0d0d';
+            icon = 'Ninja-icon-red.png';
             // alert('Beware malicious Site');
             text = 'Malicious';
             break;
         case 'suspicious' :
+            color = '#f3f716';
+            icon = 'Ninja-icon-yellow.png';
+
             text = 'Suspicious';
             // alert('Continue with caution, suspicious site');
             break;
         case 'not_detected' :
+            icon = 'Ninja-icon.png';
+
+            color = '#99dbd6';
             text = 'Clear';
             // alert('Site Clear');
             break;
         default:
-            text = 'Not Analyzed';
+            icon = 'Ninja-icon-white.png';
+
+            color = '#dc00ff';
+            text = 'N/A';
             break;
     };
 
-    chrome.browserAction.setBadgeText({text: text});
+    chrome.browserAction.setIcon({tabId: currentTabID, path: icon});
+    // chrome.browserAction.setBadgeBackgroundColor({color : color});
+    // chrome.browserAction.setBadgeText({text: text});
 };
 
 var handleRating = function (rating) {
@@ -77,13 +93,15 @@ var getCurrentTab = function () {
     chrome.tabs.query({active : true, currentWindow: true}, function (tabs) {
         console.log(tabs);
         var activeTab = tabs[0];
-        console.log(activeTab.url);
+        // console.log(activeTab.url);
     });
 };
 
+var currentTabID = null;
 var getTabById = function (_tabId) {
     console.log('getTabById', _tabId)
      chrome.tabs.get(_tabId, function(tab) {
+        currentTabID = _tabId;
         sendToServer(tab.url);
     });
 };

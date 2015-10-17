@@ -14,7 +14,7 @@
     }],
     "browser_action": {
         "default_title": "Test Extension",
-        "default_icon": "debuggerPause.png"
+        "default_icon": "Ninja-icon-white.png"
     },
 
     "permissions": ["activeTab", "storage", "debugger", "tabs"]
