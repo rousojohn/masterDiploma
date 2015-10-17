@@ -1,6 +1,6 @@
 /* Regex-pattern to check URLs against. 
    It matches URLs like: http[s]://[...]stackoverflow.com[...] */
-var urlRegex = /^https?:\/\/(?:[^\.]+\.)?stackoverflow\.com/;
+var urlRegex = /^https?:\/\/(?:[^\.]+\.)?/;
 var $ = jQuery;
 var thisUserID = '';
 
@@ -55,23 +55,25 @@ var handleRating = function (rating) {
     else return '';
 };
 
-var sendToServer = function (_url) {    
-    console.log(_url);
-    $.post('http://localhost:3000/entries', { url : _url, userID : thisUserID})
-     .done(function (_res) {
-
-        informUser(handleRating(_res));
-        console.log(_res);
-     })
-     .fail(function (_err) {
-        console.log("FAIL");
-
-     });
+var sendToServer = function (_url) {
+    if ( urlRegex.test(_url) )
+    {
+    console.log('sendToServer',_url);
+        $.post('http://localhost:3000/entries', { url : _url, userID : thisUserID})
+         .done(function (_res) {
+            informUser(handleRating(_res));
+            console.log(_res);
+        })
+         .fail(function (_err) {
+            console.log("FAIL");
+        });
+     }
     // console.log('Send To Server: ', {'_url' : _url, 'userId' : thisUserID});    
 };
 
 
 var getCurrentTab = function () {
+    console.log('getCurrentTab');
     chrome.tabs.query({active : true, currentWindow: true}, function (tabs) {
         console.log(tabs);
         var activeTab = tabs[0];
@@ -80,6 +82,7 @@ var getCurrentTab = function () {
 };
 
 var getTabById = function (_tabId) {
+    console.log('getTabById', _tabId)
      chrome.tabs.get(_tabId, function(tab) {
         sendToServer(tab.url);
     });
@@ -88,11 +91,13 @@ var getTabById = function (_tabId) {
 
 
 chrome.tabs.onUpdated.addListener(function(tabId,changeInfo,tab){
+    console.log("Updated", tabId, changeInfo, tab);
     getTabById(tabId);
 });
 
 
 chrome.tabs.onActivated.addListener(function(info) {
+    console.log("Activated", info);
    getTabById(info.tabId);
 });
 
