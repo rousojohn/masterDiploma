@@ -22,7 +22,6 @@ var getRandomToken = function () {
 
 var informUser = function (rating) {
     console.log("informUser: " + rating);
-    // getCurrentTab()
     var text = '';
     var color = '';
     var icon = '' ;
@@ -30,7 +29,6 @@ var informUser = function (rating) {
         case 'malicious' :
             color = '#dd0d0d';
             icon = 'Ninja-icon-red.png';
-            // alert('Beware malicious Site');
             text = 'Malicious';
             break;
         case 'suspicious' :
@@ -38,14 +36,12 @@ var informUser = function (rating) {
             icon = 'Ninja-icon-yellow.png';
 
             text = 'Suspicious';
-            // alert('Continue with caution, suspicious site');
             break;
         case 'not_detected' :
             icon = 'Ninja-icon.png';
 
             color = '#99dbd6';
             text = 'Clear';
-            // alert('Site Clear');
             break;
         default:
             icon = 'Ninja-icon-white.png';
@@ -56,8 +52,6 @@ var informUser = function (rating) {
     };
 
     chrome.browserAction.setIcon({tabId: currentTabID, path: icon});
-    // chrome.browserAction.setBadgeBackgroundColor({color : color});
-    // chrome.browserAction.setBadgeText({text: text});
 };
 
 var handleRating = function (rating) {
@@ -71,20 +65,21 @@ var handleRating = function (rating) {
     else return '';
 };
 
-var sendToServer = function (_url) {
+var sendToServer = function (_url, _debuggeeId, _tabId) {
     if ( urlRegex.test(_url) )
     {
-    console.log('sendToServer',_url);
+        console.log('sendToServer',_url);
         $.post('http://localhost:3000/entries', { url : _url, userID : thisUserID})
          .done(function (_res) {
             informUser(handleRating(_res));
             console.log(_res);
+            if (attachedTabs[_tabId])
+             chrome.debugger.detach(_debuggeeId, onDetach.bind(null, _debuggeeId));
         })
          .fail(function (_err) {
             console.log("FAIL");
         });
      }
-    // console.log('Send To Server: ', {'_url' : _url, 'userId' : thisUserID});    
 };
 
 
@@ -93,16 +88,23 @@ var getCurrentTab = function () {
     chrome.tabs.query({active : true, currentWindow: true}, function (tabs) {
         console.log(tabs);
         var activeTab = tabs[0];
-        // console.log(activeTab.url);
     });
 };
 
 var currentTabID = null;
 var getTabById = function (_tabId) {
-    console.log('getTabById', _tabId)
+    console.log('getTabById', _tabId);
+    var debuggeeId = {tabId:_tabId};
+
+    if (attachedTabs[_tabId] == "pausing")
+        return;
+
+    if (!attachedTabs[_tabId])
+        chrome.debugger.attach(debuggeeId, version, onAttach.bind(null, debuggeeId));
+
      chrome.tabs.get(_tabId, function(tab) {
         currentTabID = _tabId;
-        sendToServer(tab.url);
+        sendToServer(tab.url, debuggeeId, _tabId);
     });
 };
 
@@ -116,7 +118,7 @@ chrome.tabs.onUpdated.addListener(function(tabId,changeInfo,tab){
 
 chrome.tabs.onActivated.addListener(function(info) {
     console.log("Activated", info);
-   getTabById(info.tabId);
+    getTabById(info.tabId);
 });
 
 chrome.storage.sync.get('userid', function(items) {
@@ -135,64 +137,36 @@ chrome.storage.sync.get('userid', function(items) {
     }
 });
 
-/* When the browser-action button is clicked... */
-// chrome.browserAction.onClicked.addListener(function(tab) {
-//     /*...check the URL of the active tab against our pattern and... */
-//     if (urlRegex.test(tab.url)) {
-//         /* ...if it matches, send a message specifying a callback too */
-//         chrome.tabs.sendMessage(tab.id, { text: "report_back" }, sendToServer);
-//     }
-// //    console.log('tstsadsd');
-// //    chrome.tabs.executeScript(tab.id, {
-// //        code: "window.stop();",
-// //        runAt: "document_start"
-// //    });
-// });
 
-
-
-
-
-// chrome.debugger.onEvent.addListener(onEvent);
-// chrome.debugger.onDetach.addListener(onDetach);
-
-chrome.browserAction.onClicked.addListener(function(tab) {
-    getTabById(tab.id);
-});
+chrome.debugger.onEvent.addListener(onEvent);
+chrome.debugger.onDetach.addListener(onDetach);
 
 function onAttach(debuggeeId) {
-    if (chrome.runtime.lastError) {
-        alert(chrome.runtime.lastError.message);
-        return;
-    }
-    
-    var tabId = debuggeeId.tabId;
+  if (chrome.runtime.lastError) {
+    alert(chrome.runtime.lastError.message);
+    return;
+  }
 
-    chrome.browserAction.setIcon({tabId: tabId, path:"debuggerPausing.png"});
-    chrome.browserAction.setTitle({tabId: tabId, title:"Pausing JavaScript"});
-    attachedTabs[tabId] = "pausing";
-    chrome.debugger.sendCommand(
-        debuggeeId, "Debugger.enable", {},
-        onDebuggerEnabled.bind(null, debuggeeId));
+  var tabId = debuggeeId.tabId;
+
+  attachedTabs[tabId] = "pausing";
+  chrome.debugger.sendCommand(
+      debuggeeId, "Debugger.enable", {},
+      onDebuggerEnabled.bind(null, debuggeeId));
 }
 
 function onDebuggerEnabled(debuggeeId) {
-    chrome.debugger.sendCommand(debuggeeId, "Debugger.pause");
+  chrome.debugger.sendCommand(debuggeeId, "Debugger.pause");
 }
 
 function onEvent(debuggeeId, method) {
-    var tabId = debuggeeId.tabId;
-    if (method == "Debugger.paused") {
-        attachedTabs[tabId] = "paused";
-        chrome.browserAction.setIcon({tabId:tabId, path:"debuggerContinue.png"});
-        chrome.browserAction.setTitle({tabId:tabId, title:"Resume JavaScript"});
+  var tabId = debuggeeId.tabId;
+  if (method == "Debugger.paused") {
+    attachedTabs[tabId] = "paused";
     }
 }
 
 function onDetach(debuggeeId) {
-    var tabId = debuggeeId.tabId;
-    delete attachedTabs[tabId];
-    chrome.browserAction.setIcon({tabId:tabId, path:"debuggerPause.png"});
-    chrome.browserAction.setTitle({tabId:tabId, title:"Pause JavaScript"});
+  var tabId = debuggeeId.tabId;
+  delete attachedTabs[tabId];
 }
-
