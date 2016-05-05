@@ -108,6 +108,34 @@ var getTabById = function (_tabId) {
     });
 };
 
+var onAttach = function (debuggeeId) {
+    if (chrome.runtime.lastError) {
+        alert(chrome.runtime.lastError.message);
+        return;
+    }
+
+    var tabId = debuggeeId.tabId;
+
+    attachedTabs[tabId] = "pausing";
+    chrome.debugger.sendCommand(debuggeeId, "Debugger.enable", {}, onDebuggerEnabled.bind(null, debuggeeId));
+};
+
+var onDebuggerEnabled = function (debuggeeId) {
+    chrome.debugger.sendCommand(debuggeeId, "Debugger.pause");
+};
+
+var onEvent = function (debuggeeId, method) {
+    var tabId = debuggeeId.tabId;
+    if (method == "Debugger.paused") {
+        attachedTabs[tabId] = "paused";
+    }
+};
+
+var onDetach = function (debuggeeId) {
+    var tabId = debuggeeId.tabId;
+    delete attachedTabs[tabId];
+};
+
 
 
 chrome.tabs.onUpdated.addListener(function(tabId,changeInfo,tab){
@@ -140,33 +168,3 @@ chrome.storage.sync.get('userid', function(items) {
 
 chrome.debugger.onEvent.addListener(onEvent);
 chrome.debugger.onDetach.addListener(onDetach);
-
-function onAttach(debuggeeId) {
-  if (chrome.runtime.lastError) {
-    alert(chrome.runtime.lastError.message);
-    return;
-  }
-
-  var tabId = debuggeeId.tabId;
-
-  attachedTabs[tabId] = "pausing";
-  chrome.debugger.sendCommand(
-      debuggeeId, "Debugger.enable", {},
-      onDebuggerEnabled.bind(null, debuggeeId));
-}
-
-function onDebuggerEnabled(debuggeeId) {
-  chrome.debugger.sendCommand(debuggeeId, "Debugger.pause");
-}
-
-function onEvent(debuggeeId, method) {
-  var tabId = debuggeeId.tabId;
-  if (method == "Debugger.paused") {
-    attachedTabs[tabId] = "paused";
-    }
-}
-
-function onDetach(debuggeeId) {
-  var tabId = debuggeeId.tabId;
-  delete attachedTabs[tabId];
-}
