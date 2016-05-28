@@ -42,7 +42,7 @@ var db_createEntry = function (_newEntry) {
 var getAll = function () {
   Entry.find(function (err, data) {
     if (err) return console.error(err);
-  console.log("\n\n\n\n\n\n\n\n\n\n===============\n",data);
+    console.log("\n\n\n\n\n\n\n\n\n\n===============\n",data);
   });
 };
 
@@ -93,12 +93,9 @@ var InitResult = function (_malicious, _suspicious, _not_detected, _not_analyzed
   };
 };
 
-
-
 var StringContains = function (haystack, needle) {
   return haystack.indexOf(needle) > -1;
 };
-
 
 var processResult = function (stdout, _file, _res) {
     var lines = stdout.toString().split("\n");
@@ -203,14 +200,11 @@ var execCommand = function (_userId, _userUrl, _crudFunction) {
   });  
 };
 
-
 router.all('/', function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Headers", "X-Requested-With");
   next();
- });
-
-
+});
 
 var gUrlHash = null;
 var gDomHash = null;
@@ -236,7 +230,6 @@ router.post('/', function (req, res, next) {
   var gSearchDbUrlRes = null;
   var gSearchDbDomRes = null;
 
-
   var _userUrl = req.body.url;
   var _userId = req.body.userID;
 
@@ -247,20 +240,17 @@ router.post('/', function (req, res, next) {
 
   myEmitter.on("urlHashFound", function () {
     console.log('urlHashFound');
-
     checkGdomHash();
   });
 
   myEmitter.on("domHashFound", function (entry) {
     console.log('domHashFound');
-
     var resultRating = InitResult(entry.malicious, entry.suspicious, entry.not_detected, 0);
     myEmitter.emit("returnResult", resultRating);
   });
 
   myEmitter.on("domHashNotFound", function () {
     console.log('domHashNotFound');
-
     execCommand(_userId, _userUrl, 'update');
   });
 
@@ -308,38 +298,7 @@ router.post('/', function (req, res, next) {
     return;
   });
 
-
-  // res.json(InitResult());
-
-    generateHashes(_userUrl);
-
-
-
-});
-
-
-/*router.get('/', function (req, res, next) {
-  myEmitter.on("returnError", function (_err) {
-    console.log("OnError", _err);
-    
-    var resultRating = InitResult();
-    resultRating.error = _err;
-    res.json(resultRating);
-    return;
+  generateHashes(_userUrl);
   });
-
-  dbFunctionDictionary['create']({
-        malicious : 4,
-        userID : 1233,
-        urlHash : '123asd123sad1243ads',
-        domHash : 'gDomHash'});
-/*setTimeout(function () {
-  dbFunctionDictionary['update']({
-        malicious : false,
-        userID : 1233,
-        urlHash : '123asd123sad1243ads',
-        domHash : 'asdasdad'});
-}, 1000);
-});*/
 
 module.exports = router;
