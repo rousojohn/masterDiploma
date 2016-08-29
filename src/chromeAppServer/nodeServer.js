@@ -18,7 +18,7 @@ app.get('/', function (req, res, next) {
 */
 var configuration = {
 	port : 8081,
-	hostname : '83.212.116.165',
+	hostname : 'localhost', //'83.212.116.165',
 	blakclist_url : 'http://pgl.yoyo.org/as/serverlist.php?hostformat=;showintro=0',
 	blacklist_file : './webNinja_blackList'
 };
