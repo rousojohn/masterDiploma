@@ -8,6 +8,14 @@ var fs = require("fs");
 var phantom = require("phantom");
 var bodyParser = require('body-parser');
 var helmet = require('helmet');
+var jsdom = require('jsdom');
+
+var execFile = require('child_process').execFile;
+var random = require('random-js');
+
+var userId = random().uuid4();
+
+
 
 /*
 app.get('/', function (req, res, next) {
@@ -16,11 +24,13 @@ app.get('/', function (req, res, next) {
   .pipe(process.stdout);
   });
 */
-var configuration = {
+
+	var configuration = {
 	port : 8081,
 	hostname : 'localhost', //'83.212.116.165',
 	blakclist_url : 'http://pgl.yoyo.org/as/serverlist.php?hostformat=;showintro=0',
-	blacklist_file : './webNinja_blackList'
+	blacklist_file : './webNinja_blackList',
+	jsUnpack : '../'
 };
 
 
@@ -67,6 +77,30 @@ var server = app.listen(configuration.port, configuration.hostname, function () 
 });
 
 
+var execJsUnpack = function (_file) {
+	var deferred = Q.defer();
+	const execFile = execFile ( configuration.jsUnpack, [userId, _file]
+	return deferred.promise; 
+};
+
+var createResObject = function (_file) {
+	var deferred = Q.deferred();
+	jsdom.env({
+		file : _file,
+		scripts : ["http://code.jquery.com/jquery.js"],
+		done : function (err, window) {
+			if (err) {
+				console.log(err);
+				deferred.reject(err);
+			}
+			var $ = window.$;
+			$('script').last().remove();
+
+			deferred.resolve({ head : $("head").html(), body: $("body").html()});
+		}
+	});
+};
+
 var getClientsPage = function (regex, _url) {
 	var deferred = Q.defer();
 	phantom.create().then(function (ph) {
@@ -111,7 +145,7 @@ var getClientsPage = function (regex, _url) {
 
 
 var getAdsDomainList = function () {
-console.log("getAdsDomainList");
+	console.log("getAdsDomainList");
 	var deferred = Q.defer();
 	
 	phantom.create().then(function(ph) {

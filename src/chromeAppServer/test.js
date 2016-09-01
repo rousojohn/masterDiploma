@@ -10,23 +10,25 @@ var bodyParser = require('body-parser');
 var helmet = require('helmet');
 
 var jsdom = require('jsdom');
+var exec = require('child_process').exec;
+var random = require('random-js');
 
+var userId = random().uuid4();
 
 app.get('/', function (req, res, next) {
-	jsdom.env({
-		file : "milworm.html",
-		scripts : ["http://code.jquery.com/jquery.js"],
-		done : function (err, window) {
-			var $ = window.$;
-			console.log($("head").html());
+	console.log(userId);
 
-			console.log('============');
-			console.log('============');
-			console.log('============');
-			$('script').last().remove();
-			console.log($("body").html());
-		}
-	});
+	var cmd = '../test.sh 234234234 /home/rousojohn/Desktop/masterDiploma/src/chromeAppServer/milworm.html';
+	const child = exec ( cmd, 
+							function (error, stdout, stderr) {
+								if (error) {
+
+								    throw error;
+								  }
+								console.log(stdout);
+								console.log(stderr);
+								res.end();
+							});
  });
 
 
