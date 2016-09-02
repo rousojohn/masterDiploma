@@ -12,6 +12,7 @@ var jsdom = require('jsdom');
 
 var execFile = require('child_process').execFile;
 var random = require('random-js');
+var shell = require('shelljs');
 
 var userId = random().uuid4();
 
@@ -25,12 +26,12 @@ app.get('/', function (req, res, next) {
   });
 */
 
-	var configuration = {
+var configuration = {
 	port : 8081,
 	hostname : 'localhost', //'83.212.116.165',
 	blakclist_url : 'http://pgl.yoyo.org/as/serverlist.php?hostformat=;showintro=0',
 	blacklist_file : './webNinja_blackList',
-	jsUnpack : '../'
+	jsUnpackDir : '~/jsunpack-n/'
 };
 
 
@@ -61,6 +62,12 @@ app.post('/', function (req, res, next) {
 			return getClientsPage(regex, _userUrl);
 		}, function(){})
 		.then(function(html) {
+			return writeToFile(shell.tempDir() + "/" + userId + ".html", html)
+					.then(execJsUnpack)
+					.then(replaceTextToFile)
+					.then(createResObject);
+		})
+		.then(function(html) {
 			res.json(html);
 		})
 		.done();
@@ -77,9 +84,61 @@ var server = app.listen(configuration.port, configuration.hostname, function () 
 });
 
 
+var replaceTextToFile = function (file_needle) {
+	var deferred = Q.defer();
+	var fileToClear  = file_needle.file;
+	var needle = file_needle.needle;
+	var fileToReturn = path.join(__dirname, userId+".html");
+
+	var writeStream = fs.createWriteStream(fileToReturn);
+
+	writeStream.on('finish', function (){
+		deferred.resolve(fileToReturn);
+	});
+
+	writeStream.on('error', function (err) {
+	    console.error(err);
+	    deferred.reject();
+	  });
+
+	fs.createReadStream(fileToClear)
+  	  .pipe(replaceStream(needle, ''))
+  	  .pipe(fileToReturn);
+
+  	  return deferred.promise;
+};
+
 var execJsUnpack = function (_file) {
 	var deferred = Q.defer();
-	const execFile = execFile ( configuration.jsUnpack, [userId, _file]
+	
+	var tmpFile = shell.tempdir() + "/" + userId + ".tmp.txt";
+	var cur_dir = shell.pwd();
+	shell.cd(configuration.jsUnpackDir);
+
+	var cmd = 'python jsunpackn.py -d ~/webNinjaOutput/' + userId + " -a -V " + _file;
+	shell.exec(cmd, {silent:true}, function (code, stdout, stderr) {
+		var textToRemove = '';
+		if ( code !== 0) {
+			console.error(stderr);
+			deferred.reject(stderr);
+		}
+		else {
+			shell.ShellString(stdout).to(tmpFile);
+			shell.chmod(655, tmpFile);
+			shell.cd(cur_dir);
+
+			var isMalicious = shell.cat(tmpFile).grep('malicious').stdout;
+			var isSuspicious = shell.cat(tmpFile).grep('suspicious').stdout;
+
+			if (isMalicious === isSuspicious === '')
+				deferred.resolve('');
+			else 
+				textToRemove = shell.cat('~/webNinjaOutput/' + userId + '/original_*').stdout;
+
+		}
+		shell.cd(cur_dir);
+		deferred.resolve({file: _file, needle : textToRemove});
+	});
 	return deferred.promise; 
 };
 
@@ -124,13 +183,9 @@ var getClientsPage = function (regex, _url) {
 					
 					var body = document.body.outerHTML;
 					
-					return {head: head, body: body};//'<html>' + head + body + '</html>';
+					return '<html>' + head + body + '</html>'; //{head: head, body: body};//
 				}, regex, clearElement)
 				.then(function(html){
-					//console.log(html);
-					//clientRes.json(html);
-						//clientRes.send(html);
-						console.log('<html>'+html.head+html.body+'</html>');
 						deferred.resolve(html);
 				});
 				
@@ -183,14 +238,18 @@ var clearElement = function (_element) {
 };
 
 
-var writeToFile = function (_content) {
+var writeToFile = function (_file, _content) {
 	console.log("writeToFile");
 	var deferred = Q.defer();
-	fs.writeFile(configuration.blacklist_file, _content, function(err, data) {
+	fs.writeFile(_file, _content, function(err, data) {
 		if (err) deferred.reject();
-		else deferred.resolve(configuration.blacklist_file);
+		else deferred.resolve(_file);
 	});
 	return deferred.promise;
+};
+
+var writeBLKlstToFile = function (_content) {
+	return writeToFile(configuration.blacklist_file, _content);
 };
 
 
@@ -228,5 +287,5 @@ var blacklist_exists = function (flag) {
 
 var blacklist_notExists = function (flag) {
 	console.log("blacklist_notExists");
-	return	getAdsDomainList().then(writeToFile).then(readFromFile);
+	return	getAdsDomainList().then(writeBLKlstToFile).then(readFromFile);
 };
