@@ -17,15 +17,6 @@ var shell = require('shelljs');
 var userId = random().uuid4();
 
 
-
-/*
-app.get('/', function (req, res, next) {
-	fs.createReadStream(path.join(__dirname, 'happybirthday.txt'))
-  .pipe(replaceStream('birthday', 'earthday'))
-  .pipe(process.stdout);
-  });
-*/
-
 var configuration = {
 	port : 8081,
 	hostname : 'localhost', //'83.212.116.165',
@@ -34,45 +25,44 @@ var configuration = {
 	jsUnpackDir : '~/jsunpack-n/'
 };
 
-
 app.use(compression());
 app.use(helmet());
 app.use(bodyParser.json()); // for parsing application/json
 app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 
 app.use(function(req, res, next) {
-	console.log("1st middleware");
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	next();
 });
 
 app.use(function(req, res, next) {
-	console.log('2nd middleware');
 	next();
 });
 
-app.post('/', function (req, res, next) {
-	console.log("app.post");
-	
+app.post('/', function (req, res, next) {	
 	var _userUrl = req.body.url;
+
 	fileAccess(configuration.blacklist_file)
 		.then(blacklist_exists, blacklist_notExists)
 		.then(function(regex) {
 			return getClientsPage(regex, _userUrl);
 		}, function(){})
 		.then(function(html) {
-			return writeToFile(shell.tempDir() + "/" + userId + ".html", html)
+			return writeToFile(shell.tempdir() + "/" + userId + ".html", html)
 					.then(execJsUnpack)
 					.then(replaceTextToFile)
 					.then(createResObject);
 		})
 		.then(function(html) {
 			res.json(html);
+			shell.rm("-rf", shell.tempdir() + "/" + userId + ".tmp.txt");
+			shell.rm("-rf", shell.tempdir() + "/" + userId + ".html");
+			shell.rm("-rf", "~/webNinjaOutput/" + userId);
+			shell.rm("-rf", path.join(__dirname, userId+".html"));
 		})
 		.done();
 });
-
 
 var server = app.listen(configuration.port, configuration.hostname, function () {
 
@@ -83,29 +73,33 @@ var server = app.listen(configuration.port, configuration.hostname, function () 
 
 });
 
-
 var replaceTextToFile = function (file_needle) {
 	var deferred = Q.defer();
-	var fileToClear  = file_needle.file;
-	var needle = file_needle.needle;
+
+	var fileToread = file_needle.file;
+	var needle =  file_needle.needle;
 	var fileToReturn = path.join(__dirname, userId+".html");
 
-	var writeStream = fs.createWriteStream(fileToReturn);
+	if (needle.trim().length === 0) {
+		deferred.resolve(fileToread);
+	}
+	else {
+		var writeStream = fs.createWriteStream(fileToReturn);
+		
+		writeStream.on('finish', function () {
+			deferred.resolve(fileToReturn);
+		});
+	
+		writeStream.on('error', function(err){
+			deferred.reject();
+		});
+	
+		fs.createReadStream(fileToread)
+		  .pipe(replaceStream(needle, ''))
+		  .pipe(writeStream);
+	}
 
-	writeStream.on('finish', function (){
-		deferred.resolve(fileToReturn);
-	});
-
-	writeStream.on('error', function (err) {
-	    console.error(err);
-	    deferred.reject();
-	  });
-
-	fs.createReadStream(fileToClear)
-  	  .pipe(replaceStream(needle, ''))
-  	  .pipe(fileToReturn);
-
-  	  return deferred.promise;
+  return deferred.promise;
 };
 
 var execJsUnpack = function (_file) {
@@ -119,7 +113,6 @@ var execJsUnpack = function (_file) {
 	shell.exec(cmd, {silent:true}, function (code, stdout, stderr) {
 		var textToRemove = '';
 		if ( code !== 0) {
-			console.error(stderr);
 			deferred.reject(stderr);
 		}
 		else {
@@ -127,13 +120,15 @@ var execJsUnpack = function (_file) {
 			shell.chmod(655, tmpFile);
 			shell.cd(cur_dir);
 
-			var isMalicious = shell.cat(tmpFile).grep('malicious').stdout;
-			var isSuspicious = shell.cat(tmpFile).grep('suspicious').stdout;
-
-			if (isMalicious === isSuspicious === '')
-				deferred.resolve('');
-			else 
+			var isMalicious = shell.cat(tmpFile).grep('malicious').stdout.trim();
+			var isSuspicious = shell.cat(tmpFile).grep('suspicious').stdout.trim();
+			
+			if (isMalicious.length === 0 && isSuspicious.length === 0 ) {
+				textToRemove = '';
+			}
+			else {
 				textToRemove = shell.cat('~/webNinjaOutput/' + userId + '/original_*').stdout;
+			}
 
 		}
 		shell.cd(cur_dir);
@@ -143,25 +138,29 @@ var execJsUnpack = function (_file) {
 };
 
 var createResObject = function (_file) {
-	var deferred = Q.deferred();
+	var deferred = Q.defer();
+
 	jsdom.env({
 		file : _file,
 		scripts : ["http://code.jquery.com/jquery.js"],
 		done : function (err, window) {
 			if (err) {
-				console.log(err);
 				deferred.reject(err);
 			}
 			var $ = window.$;
-			$('script').last().remove();
+			var _head = $("head").html();
+			var _body = $("body").html();
 
-			deferred.resolve({ head : $("head").html(), body: $("body").html()});
+			$('script').last().remove();
+			deferred.resolve({ head : _head, body: _body});
 		}
 	});
+	return deferred.promise;
 };
 
 var getClientsPage = function (regex, _url) {
 	var deferred = Q.defer();
+
 	phantom.create().then(function (ph) {
 		ph.createPage().then(function (page) {
 			page.open(_url).then(function (status) {
@@ -178,9 +177,7 @@ var getClientsPage = function (regex, _url) {
 							clearElement(document.body.getElementsByTagName('iframe')[i]);
 					}
 						
-						
 					var head = document.head.outerHTML;
-					
 					var body = document.body.outerHTML;
 					
 					return '<html>' + head + body + '</html>'; //{head: head, body: body};//
@@ -194,36 +191,22 @@ var getClientsPage = function (regex, _url) {
 			});
 		});
 	});
-	
 	return deferred.promise;
 };
 
-
 var getAdsDomainList = function () {
-	console.log("getAdsDomainList");
 	var deferred = Q.defer();
 	
 	phantom.create().then(function(ph) {
 		ph.createPage().then(function (page) {
 			page.open(configuration.blakclist_url).then(function(status){
-			//console.log(_url);
 				page.evaluate(function (){
-						console.log(document.getElementsByTagName('pre')[0].innerHTML);
 						return document.getElementsByTagName('pre')[0].innerHTML;
 					})
 					.then(function(html){
-						//console.log("myhtml", html.trim().replace(/\s/g, "|"));
-						
-						// trim leading and trailing whispaces
-						// replace whitespaces with '|' in order to create a regural expression to test.
-												
 						html = html.trim().replace(/\s/g, "|");
 						
 						deferred.resolve(html);
-						//writeToFile(html);
-						//console.log(_url);
-						//getClientsPage(res, html, _url);
-						
 					});
 			});
 		});
@@ -237,9 +220,7 @@ var clearElement = function (_element) {
 	_element.outerHTML = '';
 };
 
-
 var writeToFile = function (_file, _content) {
-	console.log("writeToFile");
 	var deferred = Q.defer();
 	fs.writeFile(_file, _content, function(err, data) {
 		if (err) deferred.reject();
@@ -251,7 +232,6 @@ var writeToFile = function (_file, _content) {
 var writeBLKlstToFile = function (_content) {
 	return writeToFile(configuration.blacklist_file, _content);
 };
-
 
 var readFromFile = function (file) {
 	var deferred = Q.defer();
@@ -281,11 +261,9 @@ var fileAccess = function (file) {
 };
 
 var blacklist_exists = function (flag) {
-	console.log('file Exists');
 	return readFromFile(configuration.blacklist_file);
 };
 
 var blacklist_notExists = function (flag) {
-	console.log("blacklist_notExists");
 	return	getAdsDomainList().then(writeBLKlstToFile).then(readFromFile);
 };
