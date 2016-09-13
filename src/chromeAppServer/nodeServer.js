@@ -147,7 +147,13 @@ var createResObject = function (_file) {
 			if (err) {
 				deferred.reject(err);
 			}
-			var $ = window.$;
+			// console.log(window);
+			var $ = '';
+			if (window.$)
+			 $ = window.$ ;
+			else if ( window.jQuery )
+				$ = window.jQuery;
+			console.log($);
 			var _head = $("head").html();
 			var _body = $("body").html();
 
