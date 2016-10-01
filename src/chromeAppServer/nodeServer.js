@@ -9,10 +9,10 @@ var phantom = require("phantom");
 var bodyParser = require('body-parser');
 var helmet = require('helmet');
 var jsdom = require('jsdom');
-
 var execFile = require('child_process').execFile;
 var random = require('random-js');
 var shell = require('shelljs');
+
 
 var userId = random().uuid4();
 
@@ -41,20 +41,29 @@ app.use(function(req, res, next) {
 });
 
 app.post('/', function (req, res, next) {	
+	logMe('app.post callback', '');
+
 	var _userUrl = req.body.url;
 
 	fileAccess(configuration.blacklist_file)
 		.then(blacklist_exists, blacklist_notExists)
 		.then(function(regex) {
+			
+			logMe('app.post', 'before getClientsPage');
 			return getClientsPage(regex, _userUrl);
+
 		}, function(){})
 		.then(function(html) {
+			logMe('app.post', 'before writeToFile');
+
 			return writeToFile(shell.tempdir() + "/" + userId + ".html", html)
 					.then(execJsUnpack)
 					.then(replaceTextToFile)
 					.then(createResObject);
 		})
 		.then(function(html) {
+			logMe('app.post', 'before response');
+
 			res.json(html);
 			shell.rm("-rf", shell.tempdir() + "/" + userId + ".tmp.txt");
 			shell.rm("-rf", shell.tempdir() + "/" + userId + ".html");
@@ -74,6 +83,8 @@ var server = app.listen(configuration.port, configuration.hostname, function () 
 });
 
 var replaceTextToFile = function (file_needle) {
+	logMe('replaceTextToFile', '');
+
 	var deferred = Q.defer();
 
 	var fileToread = file_needle.file;
@@ -81,6 +92,8 @@ var replaceTextToFile = function (file_needle) {
 	var fileToReturn = path.join(__dirname, userId+".html");
 
 	if (needle.trim().length === 0) {
+		logMe('replaceTextToFile', 'needle is empty');
+
 		deferred.resolve(fileToread);
 	}
 	else {
@@ -91,8 +104,14 @@ var replaceTextToFile = function (file_needle) {
 		});
 	
 		writeStream.on('error', function(err){
+			logMe('replaceTextToFile', 'writeStream.onError');
+			logMe('replaceTextToFile', err);
+
+
 			deferred.reject();
 		});
+
+		logMe('replaceTextToFile', 'Writing File');
 	
 		fs.createReadStream(fileToread)
 		  .pipe(replaceStream(needle, ''))
@@ -103,6 +122,8 @@ var replaceTextToFile = function (file_needle) {
 };
 
 var execJsUnpack = function (_file) {
+	logMe('execJsUnpack', '');
+
 	var deferred = Q.defer();
 	
 	var tmpFile = shell.tempdir() + "/" + userId + ".tmp.txt";
@@ -110,9 +131,15 @@ var execJsUnpack = function (_file) {
 	shell.cd(configuration.jsUnpackDir);
 
 	var cmd = 'python jsunpackn.py -d ~/webNinjaOutput/' + userId + " -a -V " + _file;
+	logMe('execJsUnpack', 'cmd = '+cmd);
+
 	shell.exec(cmd, {silent:true}, function (code, stdout, stderr) {
+		logMe('execJsUnpack', 'shell.exec callback');
+
 		var textToRemove = '';
 		if ( code !== 0) {
+			logMe('execJsUnpack.callback', 'error: '+stderr);
+
 			deferred.reject(stderr);
 		}
 		else {
@@ -124,9 +151,13 @@ var execJsUnpack = function (_file) {
 			var isSuspicious = shell.cat(tmpFile).grep('suspicious').stdout.trim();
 			
 			if (isMalicious.length === 0 && isSuspicious.length === 0 ) {
+				logMe('execJsUnpack.callback', 'site is Clear');
+
 				textToRemove = '';
 			}
 			else {
+				logMe('execJsUnpack.callback', 'site is malicious|suspicious');
+
 				textToRemove = shell.cat('~/webNinjaOutput/' + userId + '/original_*').stdout;
 			}
 
@@ -138,22 +169,27 @@ var execJsUnpack = function (_file) {
 };
 
 var createResObject = function (_file) {
+	logMe('createResObject', '');
+
 	var deferred = Q.defer();
 
 	jsdom.env({
 		file : _file,
 		scripts : ["http://code.jquery.com/jquery.js"],
 		done : function (err, window) {
+			
+			logMe('jsdom.env', 'callback');
+			
 			if (err) {
+				logMe('createResObject.callback', 'err: '+err);
 				deferred.reject(err);
 			}
-			// console.log(window);
+			
 			var $ = '';
 			if (window.$)
 			 $ = window.$ ;
 			else if ( window.jQuery )
 				$ = window.jQuery;
-			console.log($);
 			var _head = $("head").html();
 			var _body = $("body").html();
 
@@ -272,4 +308,9 @@ var blacklist_exists = function (flag) {
 
 var blacklist_notExists = function (flag) {
 	return	getAdsDomainList().then(writeBLKlstToFile).then(readFromFile);
+};
+
+var logMe = function (src, msg) {
+	var logMsg = '[' new Date() + ']' + ' --- Src: ' + src + ' --- Msg: ' + msg ; 
+	console.log(logMsg);
 };
