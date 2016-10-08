@@ -311,6 +311,6 @@ var blacklist_notExists = function (flag) {
 };
 
 var logMe = function (src, msg) {
-	var logMsg = '[' new Date() + ']' + ' --- Src: ' + src + ' --- Msg: ' + msg ; 
+	var logMsg = '['+ new Date() + ']' + ' --- Src: ' + src + ' --- Msg: ' + msg ; 
 	console.log(logMsg);
 };
