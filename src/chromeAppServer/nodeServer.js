@@ -12,7 +12,7 @@ var jsdom = require('jsdom');
 var execFile = require('child_process').execFile;
 var random = require('random-js');
 var shell = require('shelljs');
-
+var lazypipe = require('lazypipe');
 
 var userId = random().uuid4();
 
@@ -73,7 +73,7 @@ app.post('/', function (req, res, next) {
 		.done();
 });
 
-var server = app.listen(configuration.port, configuration.hostname, function () {
+var server = app.listen(configuration.port, function () {
 
   var host = server.address().address;
   var port = server.address().port;
@@ -91,12 +91,14 @@ var replaceTextToFile = function (file_needle) {
 	var needle =  file_needle.needle;
 	var fileToReturn = path.join(__dirname, userId+".html");
 
-	if (needle.trim().length === 0) {
+	if (!Array.isArray(needle) && needle.trim().length === 0) {
 		logMe('replaceTextToFile', 'needle is empty');
 
 		deferred.resolve(fileToread);
 	}
 	else {
+		var _replaces = lazypipe();
+
 		var writeStream = fs.createWriteStream(fileToReturn);
 		
 		writeStream.on('finish', function () {
@@ -113,8 +115,12 @@ var replaceTextToFile = function (file_needle) {
 
 		logMe('replaceTextToFile', 'Writing File');
 	
+		needle.forEach(function(element, index, array){
+			_replaces.pipe(replacestream(element, ''));
+		});
+		
 		fs.createReadStream(fileToread)
-		  .pipe(replaceStream(needle, ''))
+		  .pipe(_replaces)
 		  .pipe(writeStream);
 	}
 
@@ -136,7 +142,7 @@ var execJsUnpack = function (_file) {
 	shell.exec(cmd, {silent:true}, function (code, stdout, stderr) {
 		logMe('execJsUnpack', 'shell.exec callback');
 
-		var textToRemove = '';
+		var textToRemove = [];
 		if ( code !== 0) {
 			logMe('execJsUnpack.callback', 'error: '+stderr);
 
@@ -157,8 +163,10 @@ var execJsUnpack = function (_file) {
 			}
 			else {
 				logMe('execJsUnpack.callback', 'site is malicious|suspicious');
-
-				textToRemove = shell.cat('~/webNinjaOutput/' + userId + '/original_*').stdout;
+				var _files = shell.ls('~/webNinjaOutput/' + userId + '/original_*');
+				_files.forEach(function(element, index, array){
+					textToRemove.push(shell.cat(element).stdout);
+				});
 			}
 
 		}

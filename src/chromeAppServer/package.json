@@ -1,0 +1,25 @@
+{
+  "name": "chrome_app_server",
+  "version": "1.0.0",
+  "description": "Application Server for WebNinja",
+  "main": "nodeServer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "body-parser": "^1.15.2",
+    "compression": "^1.6.2",
+    "express": "^4.14.0",
+    "helmet": "^2.3.0",
+    "jsdom": "^9.6.0",
+    "lazypipe": "^1.0.1",
+    "phantom": "^2.1.21",
+    "q": "^1.4.1",
+    "random-js": "^1.0.8",
+    "replacestream": "^4.0.2",
+    "shelljs": "^0.7.4"
+  },
+  "devDependencies": {},
+  "author": "rousojohn",
+  "license": "ISC"
+}
