@@ -1,11 +1,12 @@
 {
     "manifest_version": 2,
-    "name":    "Test Extension",
-    "description": "TEST",
+    "name":    "Webninja",
+    "description": "Webninja",
     "version": "1.0",
 
 	"browser_action": {
-        "default_title": "Test Extension"
+        "default_title": "Webninja",
+        "default_icon" : "Ninja-icon.png"
     }, 
     
 	

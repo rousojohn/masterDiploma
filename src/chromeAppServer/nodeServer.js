@@ -19,7 +19,7 @@ var userId = random().uuid4();
 
 var configuration = {
 	port : 8081,
-	hostname : 'localhost', //'83.212.116.165',
+	// hostname : 'localhost', //'83.212.116.165',
 	blakclist_url : 'http://pgl.yoyo.org/as/serverlist.php?hostformat=;showintro=0',
 	blacklist_file : './webNinja_blackList',
 	jsUnpackDir : '~/jsunpack-n/'
@@ -38,6 +38,10 @@ app.use(function(req, res, next) {
 
 app.use(function(req, res, next) {
 	next();
+});
+
+app.get('/ping', function (req, res, next) {
+	res.send('Hello World!!!\n');
 });
 
 app.post('/', function (req, res, next) {	
